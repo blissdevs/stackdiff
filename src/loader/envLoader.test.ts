@@ -28,6 +28,13 @@ describe('loadFromFile', () => {
     expect(result.name).toBe(path.basename(tmpFile));
     fs.unlinkSync(tmpFile);
   });
+
+  it('handles values with equals signs', () => {
+    const tmpFile = writeTempEnv('URL=http://example.com?a=1&b=2\n');
+    const result = loadFromFile(tmpFile);
+    expect(result.map).toEqual({ URL: 'http://example.com?a=1&b=2' });
+    fs.unlinkSync(tmpFile);
+  });
 });
 
 describe('loadFromInline', () => {
