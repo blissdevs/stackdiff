@@ -17,7 +17,12 @@ export function loadFromFile(filePath: string): LoadedEnv {
   if (!fs.existsSync(resolved)) {
     throw new Error(`File not found: ${resolved}`);
   }
-  const map = parseEnvFile(resolved);
+  let map: Record<string, string>;
+  try {
+    map = parseEnvFile(resolved);
+  } catch (err) {
+    throw new Error(`Failed to parse env file "${resolved}": ${(err as Error).message}`);
+  }
   return {
     name: path.basename(filePath),
     map,
