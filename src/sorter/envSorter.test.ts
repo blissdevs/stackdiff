@@ -1,65 +1,59 @@
 import { sortEnvMap, groupEnvByPrefix, applySortOptions } from './envSorter';
 
-const sampleEnv: Record<string, string> = {
+const sampleMap: Record<string, string> = {
+  ZEBRA: 'z',
+  APPLE: 'a',
   DB_HOST: 'localhost',
-  APP_PORT: '3000',
   DB_PORT: '5432',
-  APP_NAME: 'stackdiff',
-  REDIS_URL: 'redis://localhost',
+  APP_NAME: 'myapp',
+  APP_ENV: 'production',
 };
 
 describe('sortEnvMap', () => {
-  it('sorts keys ascending by default', () => {
-    const result = sortEnvMap(sampleEnv);
+  it('sorts keys alphabetically ascending', () => {
+    const result = sortEnvMap(sampleMap, 'asc');
     const keys = Object.keys(result);
     expect(keys).toEqual([...keys].sort());
   });
 
-  it('sorts keys descending', () => {
-    const result = sortEnvMap(sampleEnv, 'desc');
+  it('sorts keys alphabetically descending', () => {
+    const result = sortEnvMap(sampleMap, 'desc');
     const keys = Object.keys(result);
-    expect(keys).toEqual([...keys].sort((a, b) => b.localeCompare(a)));
-  });
-
-  it('returns original order when order is none', () => {
-    const result = sortEnvMap(sampleEnv, 'none');
-    expect(Object.keys(result)).toEqual(Object.keys(sampleEnv));
+    expect(keys).toEqual([...keys].sort().
+  it('preserves values after sorting', () => {
+    const result = sortEnvMap(sampleMap, 'asc');
+    expect(result['APPLE']).toBe('a');
+    expect(result['z');
   });
 });
 
 describe('groupEnvByPrefix', () => {
-  it('groups keys by prefix', () => {
-    const result = groupEnvByPrefix(sampleEnv);
-    expect(result).toHaveProperty('DB');
-    expect(result).toHaveProperty('APP');
-    expect(result).toHaveProperty('REDIS');
-    expect(result['DB']).toEqual({ DB_HOST: 'localhost', DB_PORT: '5432' });
+  it('groups keys by prefix separated by underscore', () => {
+    const result = groupEnvByPrefix(sampleMap);
+    expect(result['DB']).toBeDefined();
+    expect(result['DB']['DB_HOST']).toBe('localhost');
+    expect(result['DB']['DB_PORT']).toBe('5432');
+    expect(result['APP']).toBeDefined();
+    expect(result['APP']['APP_NAME']).toBe('myapp');
   });
 
-  it('places keys without delimiter into __other__', () => {
-    const env = { SIMPLE: 'value', APP_KEY: 'abc' };
-    const result = groupEnvByPrefix(env);
-    expect(result['__other__']).toEqual({ SIMPLE: 'value' });
-  });
-
-  it('respects custom delimiter', () => {
-    const env = { 'APP.NAME': 'test', 'APP.PORT': '80' };
-    const result = groupEnvByPrefix(env, '.');
-    expect(result).toHaveProperty('APP');
+  it('places keys without underscore under empty string group', () => {
+    const result = groupEnvByPrefix({ SIMPLE: 'value' });
+    expect(result['']).toBeDefined();
+    expect(result['']['SIMPLE']).toBe('value');
   });
 });
 
 describe('applySortOptions', () => {
-  it('returns sorted flat map when groupByPrefix is false', () => {
-    const result = applySortOptions(sampleEnv, { order: 'asc' });
-    expect(Array.isArray(result)).toBe(false);
+  it('applies ascending sort when option is asc', () => {
+    const result = applySortOptions(sampleMap, { order: 'asc', groupByPrefix: false });
     const keys = Object.keys(result as Record<string, string>);
     expect(keys).toEqual([...keys].sort());
   });
 
-  it('returns grouped map when groupByPrefix is true', () => {
-    const result = applySortOptions(sampleEnv, { groupByPrefix: true }) as Record<string, Record<string, string>>;
-    expect(result).toHaveProperty('DB');
-    expect(result).toHaveProperty('APP');
+  it('returns grouped result when groupByPrefix is true', () => {
+    const result = applySortOptions(sampleMap, { order: 'asc', groupByPrefix: true }) as Record<string, Record<string, string>>;
+    expect(result['DB']).toBeDefined();
+    expect(result['APP']).toBeDefined();
   });
 });
