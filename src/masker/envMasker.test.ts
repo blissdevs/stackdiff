@@ -3,74 +3,69 @@ import { isSensitiveKey, maskValue, maskEnvMap } from './envMasker';
 describe('isSensitiveKey', () => {
   it('detects password keys', () => {
     expect(isSensitiveKey('DB_PASSWORD')).toBe(true);
-    expect(isSensitiveKey('db_passwd')).toBe(true);
+    expect(isSensitiveKey('password')).toBe(true);
+  });
+
+  it('detects secret keys', () => {
+    expect(isSensitiveKey('APP_SECRET')).toBe(true);
+    expect(isSensitiveKey('SECRET_KEY')).toBe(true);
   });
 
   it('detects token keys', () => {
-    expect(isSensitiveKey('GITHUB_TOKEN')).toBe(true);
-    expect(isSensitiveKey('ACCESS_TOKEN')).toBe(true);
+    expect(isSensitiveKey('AUTH_TOKEN')).toBe(true);
+    expect(isSensitiveKey('API_TOKEN')).toBe(true);
   });
 
-  it('detects api_key keys', () => {
-    expect(isSensitiveKey('STRIPE_API_KEY')).toBe(true);
+  it('detects private key keys', () => {
+    expect(isSensitiveKey('PRIVATE_KEY')).toBe(true);
   });
 
-  it('does not flag non-sensitive keys', () => {
+  it('does not flag safe keys', () => {
+    expect(isSensitiveKey('APP_NAME')).toBe(false);
     expect(isSensitiveKey('PORT')).toBe(false);
     expect(isSensitiveKey('NODE_ENV')).toBe(false);
-    expect(isSensitiveKey('DATABASE_URL')).toBe(false);
-  });
-
-  it('supports custom patterns', () => {
-    expect(isSensitiveKey('MY_CUSTOM_VAR', [/custom/i])).toBe(true);
-    expect(isSensitiveKey('OTHER_VAR', [/custom/i])).toBe(false);
   });
 });
 
 describe('maskValue', () => {
-  it('replaces value with default mask', () => {
+  it('masks a normal value', () => {
     expect(maskValue('supersecret')).toBe('***');
   });
 
-  it('uses custom mask char', () => {
-    expect(maskValue('supersecret', '####')).toBe('####');
+  it('masks an empty value', () => {
+    expect(maskValue('')).toBe('***');
   });
 
-  it('reveals tail characters', () => {
-    expect(maskValue('supersecret', '***', 3)).toBe('***ret');
-  });
-
-  it('handles empty string', () => {
-    expect(maskValue('')).toBe('');
+  it('partially reveals long values when partial=true', () => {
+    const result = maskValue('supersecretvalue', true);
+    expect(result).toMatch(/^su\*+/);
   });
 });
 
 describe('maskEnvMap', () => {
-  const env = {
-    PORT: '3000',
-    NODE_ENV: 'production',
-    DB_PASSWORD: 'hunter2',
-    API_KEY: 'sk-abc123',
-    APP_NAME: 'stackdiff',
-  };
+  const env = new Map([
+    ['APP_NAME', 'myapp'],
+    ['DB_PASSWORD', 'hunter2'],
+    ['AUTH_TOKEN', 'tok_abc123'],
+    ['PORT', '3000'],
+  ]);
 
-  it('masks sensitive keys and leaves others intact', () => {
+  it('masks sensitive keys and leaves others', () => {
     const masked = maskEnvMap(env);
-    expect(masked.PORT).toBe('3000');
-    expect(masked.NODE_ENV).toBe('production');
-    expect(masked.APP_NAME).toBe('stackdiff');
-    expect(masked.DB_PASSWORD).toBe('***');
-    expect(masked.API_KEY).toBe('***');
+    expect(masked.get('APP_NAME')).toBe('myapp');
+    expect(masked.get('PORT')).toBe('3000');
+    expect(masked.get('DB_PASSWORD')).toBe('***');
+    expect(masked.get('AUTH_TOKEN')).toBe('***');
   });
 
-  it('respects revealTail option', () => {
-    const masked = maskEnvMap(env, { revealTail: 3 });
-    expect(masked.DB_PASSWORD).toBe('***er2');
+  it('does not mutate the original map', () => {
+    maskEnvMap(env);
+    expect(env.get('DB_PASSWORD')).toBe('hunter2');
   });
 
-  it('respects custom sensitivePatterns', () => {
-    const masked = maskEnvMap(env, { sensitivePatterns: [/app_name/i] });
-    expect(masked.APP_NAME).toBe('***');
-    expect(masked.DB_PASSWORD).toBe('hunter2');
+  it('supports partial masking option', () => {
+    const masked = maskEnvMap(env, { partial: true });
+    const token = masked.get('AUTH_TOKEN') ?? '';
+    expect(token).toMatch(/^to\*+/);
   });
 });

@@ -1,63 +1,47 @@
-/**
- * envMasker.ts
- * Masks sensitive environment variable values for safe display.
- */
-
-export interface MaskOptions {
-  /** Patterns (substrings or regex) to identify sensitive keys */
-  sensitivePatterns?: (string | RegExp)[];
-  /** Replacement string for masked values */
-  maskChar?: string;
-  /** Number of characters to reveal at the end of the value */
-  revealTail?: number;
-}
-
-const DEFAULT_SENSITIVE_PATTERNS: (string | RegExp)[] = [
-  /secret/i,
+const SENSITIVE_PATTERNS = [
   /password/i,
-  /passwd/i,
+  /secret/i,
   /token/i,
-  /api_key/i,
-  /private/i,
-  /credential/i,
+  /private[_\-]?key/i,
+  /api[_\-]?key/i,
   /auth/i,
+  /credential/i,
+  /passphrase/i,
 ];
 
-export function isSensitiveKey(
-  key: string,
-  patterns: (string | RegExp)[] = DEFAULT_SENSITIVE_PATTERNS
-): boolean {
-  return patterns.some((pattern) =>
-    pattern instanceof RegExp ? pattern.test(key) : key.toLowerCase().includes(pattern.toLowerCase())
-  );
+export function isSensitiveKey(key: string): boolean {
+  return SENSITIVE_PATTERNS.some((pattern) => pattern.test(key));
 }
 
-export function maskValue(
-  value: string,
-  maskChar = '***',
-  revealTail = 0
-): string {
-  if (value.length === 0) return '';
-  if (revealTail <= 0) return maskChar;
-  const tail = value.slice(-revealTail);
-  return `${maskChar}${tail}`;
+export function maskValue(value: string, partial = false): string {
+  if (partial && value.length >= 6) {
+    const revealCount = Math.min(2, Math.floor(value.length / 4));
+    const revealed = value.slice(0, revealCount);
+    const masked = '*'.repeat(value.length - revealCount);
+    return `${revealed}${masked}`;
+  }
+  return '***';
+}
+
+export interface MaskOptions {
+  partial?: boolean;
+  customKeys?: string[];
 }
 
 export function maskEnvMap(
-  envMap: Record<string, string>,
+  env: Map<string, string>,
   options: MaskOptions = {}
-): Record<string, string> {
-  const {
-    sensitivePatterns = DEFAULT_SENSITIVE_PATTERNS,
-    maskChar = '***',
-    revealTail = 0,
-  } = options;
+): Map<string, string> {
+  const { partial = false, customKeys = [] } = options;
+  const result = new Map<string, string>();
 
-  const result: Record<string, string> = {};
-  for (const [key, value] of Object.entries(envMap)) {
-    result[key] = isSensitiveKey(key, sensitivePatterns)
-      ? maskValue(value, maskChar, revealTail)
-      : value;
+  for (const [key, value] of env.entries()) {
+    const sensitive =
+      isSensitiveKey(key) ||
+      customKeys.some((k) => k.toLowerCase() === key.toLowerCase());
+
+    result.set(key, sensitive ? maskValue(value, partial) : value);
   }
+
   return result;
 }
