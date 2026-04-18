@@ -45,3 +45,17 @@ export function maskEnvMap(
 
   return result;
 }
+
+/**
+ * Returns the list of keys in the env map that are considered sensitive.
+ */
+export function getSensitiveKeys(
+  env: Map<string, string>,
+  customKeys: string[] = []
+): string[] {
+  return Array.from(env.keys()).filter(
+    (key) =>
+      isSensitiveKey(key) ||
+      customKeys.some((k) => k.toLowerCase() === key.toLowerCase())
+  );
+}
