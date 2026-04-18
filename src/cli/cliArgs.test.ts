@@ -21,6 +21,11 @@ describe('parseCliArgs', () => {
     expect(opts.inline).toEqual(['KEY=val']);
   });
 
+  it('parses multiple inline pairs', () => {
+    const opts = parseCliArgs(['node', 'stackdiff', '--inline', 'KEY=val', 'OTHER=val2']);
+    expect(opts.inline).toEqual(['KEY=val', 'OTHER=val2']);
+  });
+
   it('defaults strict to false', () => {
     const opts = parseCliArgs(['node', 'stackdiff', '--files', '.env.dev']);
     expect(opts.strict).toBe(false);
@@ -39,5 +44,10 @@ describe('parseCliArgs', () => {
   it('keys is undefined when not provided', () => {
     const opts = parseCliArgs(['node', 'stackdiff', '--files', '.env.dev']);
     expect(opts.keys).toBeUndefined();
+  });
+
+  it('inline is undefined when not provided', () => {
+    const opts = parseCliArgs(['node', 'stackdiff', '--files', '.env.dev']);
+    expect(opts.inline).toBeUndefined();
   });
 });
