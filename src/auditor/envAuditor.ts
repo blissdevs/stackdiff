@@ -63,3 +63,11 @@ export function formatAuditReport(result: AuditResult): string {
   }
   return lines.join('\n');
 }
+
+/**
+ * Filters audit issues by severity level.
+ * Useful for callers that only care about errors or warnings.
+ */
+export function filterIssuesBySeverity(result: AuditResult, severity: AuditSeverity): AuditIssue[] {
+  return result.issues.filter(issue => issue.severity === severity);
+}
