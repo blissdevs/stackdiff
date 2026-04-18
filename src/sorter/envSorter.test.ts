@@ -19,11 +19,13 @@ describe('sortEnvMap', () => {
   it('sorts keys alphabetically descending', () => {
     const result = sortEnvMap(sampleMap, 'desc');
     const keys = Object.keys(result);
-    expect(keys).toEqual([...keys].sort().
+    expect(keys).toEqual([...keys].sort().reverse());
+  });
+
   it('preserves values after sorting', () => {
     const result = sortEnvMap(sampleMap, 'asc');
     expect(result['APPLE']).toBe('a');
-    expect(result['z');
+    expect(result['ZEBRA']).toBe('z');
   });
 });
 
