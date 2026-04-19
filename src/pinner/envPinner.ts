@@ -56,3 +56,26 @@ export function pinMapToJson(pinMap: PinMap): object {
   }
   return obj;
 }
+
+/**
+ * Restores a PinMap from a plain JSON object (e.g. parsed from disk).
+ * Throws if any entry is missing required fields.
+ */
+export function pinMapFromJson(json: unknown): PinMap {
+  if (typeof json !== 'object' || json === null || Array.isArray(json)) {
+    throw new Error('Invalid pin map JSON: expected a plain object');
+  }
+  const pinMap: PinMap = new Map();
+  for (const [key, entry] of Object.entries(json as Record<string, unknown>)) {
+    if (
+      typeof entry !== 'object' || entry === null ||
+      typeof (entry as Record<string, unknown>).key !== 'string' ||
+      typeof (entry as Record<string, unknown>).value !== 'string' ||
+      typeof (entry as Record<string, unknown>).pinnedAt !== 'string'
+    ) {
+      throw new Error(`Invalid pin entry for key "${key}"`);
+    }
+    pinMap.set(key, entry as PinEntry);
+  }
+  return pinMap;
+}
