@@ -1,8 +1,6 @@
-/**
- * Sorts and groups environment variable maps for consistent output.
- */
+import { EnvMap } from '../parser/envParser';
 
-export type SortOrder = 'asc' | 'desc' | 'none';
+export type SortOrder = 'asc' | 'desc';
 
 export interface SortOptions {
   order?: SortOrder;
@@ -10,59 +8,54 @@ export interface SortOptions {
   prefixDelimiter?: string;
 }
 
-/**
- * Sorts an env map by key according to the given order.
- */
-export function sortEnvMap(
-  env: Record<string, string>,
-  order: SortOrder = 'asc'
-): Record<string, string> {
-  if (order === 'none') return env;
-
-  const entries = Object.entries(env);
-  entries.sort(([a], [b]) =>
-    order === 'asc' ? a.localeCompare(b) : b.localeCompare(a)
-  );
-
-  return Object.fromEntries(entries);
+export function sortEnvMap(map: EnvMap, order: SortOrder = 'asc'): EnvMap {
+  const entries = Array.from(map.entries());
+  entries.sort(([a], [b]) => {
+    const cmp = a.localeCompare(b);
+    return order === 'asc' ? cmp : -cmp;
+  });
+  return new Map(entries);
 }
 
-/**
- * Groups env map keys by their prefix (e.g. "DB_HOST" -> group "DB").
- */
 export function groupEnvByPrefix(
-  env: Record<string, string>,
+  map: EnvMap,
   delimiter: string = '_'
-): Record<string, Record<string, string>> {
-  const groups: Record<string, Record<string, string>> = {};
+): Map<string, EnvMap> {
+  const groups = new Map<string, EnvMap>();
 
-  for (const [key, value] of Object.entries(env)) {
-    const delimIndex = key.indexOf(delimiter);
-    const prefix = delimIndex > -1 ? key.substring(0, delimIndex) : '__other__';
+  for (const [key, value] of map.entries()) {
+    const delimIdx = key.indexOf(delimiter);
+    const prefix = delimIdx > -1 ? key.slice(0, delimIdx) : '__ungrouped__';
 
-    if (!groups[prefix]) {
-      groups[prefix] = {};
+    if (!groups.has(prefix)) {
+      groups.set(prefix, new Map());
     }
-    groups[prefix][key] = value;
+    groups.get(prefix)!.set(key, value);
   }
 
   return groups;
 }
 
-/**
- * Applies sorting and optional prefix grouping to an env map.
- */
-export function applySortOptions(
-  env: Record<string, string>,
-  options: SortOptions = {}
-): Record<string, string> | Record<string, Record<string, string>> {
+export function applySortOptions(map: EnvMap, options: SortOptions = {}): EnvMap {
   const { order = 'asc', groupByPrefix = false, prefixDelimiter = '_' } = options;
 
-  const sorted = sortEnvMap(env, order);
-
-  if (groupByPrefix) {
-    return groupEnvByPrefix(sorted, prefixDelimiter);
+  if (!groupByPrefix) {
+    return sortEnvMap(map, order);
   }
 
-  return sorted;
+  const groups = groupEnvByPrefix(map, prefixDelimiter);
+  const sortedGroupKeys = Array.from(groups.keys()).sort((a, b) => {
+    const cmp = a.localeCompare(b);
+    return order === 'asc' ? cmp : -cmp;
+  });
+
+  const result: EnvMap = new Map();
+  for (const groupKey of sortedGroupKeys) {
+    const groupMap = sortEnvMap(groups.get(groupKey)!, order);
+    for (const [k, v] of groupMap.entries()) {
+      result.set(k, v);
+    }
+  }
+
+  return result;
 }
