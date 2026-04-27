@@ -21,6 +21,17 @@ describe('parseKeyTrackArgs', () => {
     expect(args.missingOnly).toBe(false);
     expect(args.outputJson).toBe(false);
   });
+
+  it('parses both --missing-only and --json flags together', () => {
+    const args = parseKeyTrackArgs(['.env.a', '.env.b', '--missing-only', '--json']);
+    expect(args.missingOnly).toBe(true);
+    expect(args.outputJson).toBe(true);
+  });
+
+  it('does not include flag strings in sources', () => {
+    const args = parseKeyTrackArgs(['.env.a', '.env.b', '--missing-only', '--json']);
+    expect(args.sources).toEqual(['.env.a', '.env.b']);
+  });
 });
 
 describe('hasKeyTrackOptions', () => {
@@ -31,6 +42,11 @@ describe('hasKeyTrackOptions', () => {
 
   it('returns false when fewer than two sources', () => {
     const args = parseKeyTrackArgs(['.env.a']);
+    expect(hasKeyTrackOptions(args)).toBe(false);
+  });
+
+  it('returns false when no sources provided', () => {
+    const args = parseKeyTrackArgs([]);
     expect(hasKeyTrackOptions(args)).toBe(false);
   });
 });
