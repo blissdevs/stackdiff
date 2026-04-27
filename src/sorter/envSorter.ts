@@ -22,21 +22,18 @@ export function groupEnvByPrefix(
   delimiter: string = '_'
 ): Map<string, EnvMap> {
   const groups = new Map<string, EnvMap>();
-
   for (const [key, value] of map.entries()) {
-    const delimIdx = key.indexOf(delimiter);
-    const prefix = delimIdx > -1 ? key.slice(0, delimIdx) : '__ungrouped__';
-
+    const idx = key.indexOf(delimiter);
+    const prefix = idx !== -1 ? key.substring(0, idx) : '__other__';
     if (!groups.has(prefix)) {
       groups.set(prefix, new Map());
     }
     groups.get(prefix)!.set(key, value);
   }
-
   return groups;
 }
 
-export function applySortOptions(map: EnvMap, options: SortOptions = {}): EnvMap {
+export function applySortOptions(map: EnvMap, options: SortOptions): EnvMap {
   const { order = 'asc', groupByPrefix = false, prefixDelimiter = '_' } = options;
 
   if (!groupByPrefix) {
@@ -51,11 +48,10 @@ export function applySortOptions(map: EnvMap, options: SortOptions = {}): EnvMap
 
   const result: EnvMap = new Map();
   for (const groupKey of sortedGroupKeys) {
-    const groupMap = sortEnvMap(groups.get(groupKey)!, order);
-    for (const [k, v] of groupMap.entries()) {
+    const sorted = sortEnvMap(groups.get(groupKey)!, order);
+    for (const [k, v] of sorted.entries()) {
       result.set(k, v);
     }
   }
-
   return result;
 }

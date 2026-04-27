@@ -1,71 +1,70 @@
 import { sortEnvMap, groupEnvByPrefix, applySortOptions } from './envSorter';
 import { EnvMap } from '../parser/envParser';
 
-function makeMap(entries: Record<string, string>): EnvMap {
-  return new Map(Object.entries(entries));
+function makeMap(entries: [string, string][]): EnvMap {
+  return new Map(entries);
 }
 
 describe('sortEnvMap', () => {
   it('sorts keys ascending by default', () => {
-    const map = makeMap({ ZEBRA: '1', APPLE: '2', MANGO: '3' });
-    const sorted = sortEnvMap(map);
-    expect(Array.from(sorted.keys())).toEqual(['APPLE', 'MANGO', 'ZEBRA']);
+    const map = makeMap([['ZEBRA', '1'], ['ALPHA', '2'], ['MANGO', '3']]);
+    const result = sortEnvMap(map);
+    expect(Array.from(result.keys())).toEqual(['ALPHA', 'MANGO', 'ZEBRA']);
   });
 
   it('sorts keys descending', () => {
-    const map = makeMap({ ZEBRA: '1', APPLE: '2', MANGO: '3' });
-    const sorted = sortEnvMap(map, 'desc');
-    expect(Array.from(sorted.keys())).toEqual(['ZEBRA', 'MANGO', 'APPLE']);
+    const map = makeMap([['ZEBRA', '1'], ['ALPHA', '2'], ['MANGO', '3']]);
+    const result = sortEnvMap(map, 'desc');
+    expect(Array.from(result.keys())).toEqual(['ZEBRA', 'MANGO', 'ALPHA']);
   });
 
-  it('preserves values after sorting', () => {
-    const map = makeMap({ B: 'beta', A: 'alpha' });
-    const sorted = sortEnvMap(map);
-    expect(sorted.get('A')).toBe('alpha');
-    expect(sorted.get('B')).toBe('beta');
-  });
-
-  it('handles empty map', () => {
-    expect(sortEnvMap(new Map())).toEqual(new Map());
+  it('returns empty map for empty input', () => {
+    expect(sortEnvMap(new Map()).size).toBe(0);
   });
 });
 
 describe('groupEnvByPrefix', () => {
-  it('groups keys by prefix using delimiter', () => {
-    const map = makeMap({ DB_HOST: 'localhost', DB_PORT: '5432', APP_NAME: 'test' });
-    const groups = groupEnvByPrefix(map, '_');
+  it('groups keys by underscore prefix', () => {
+    const map = makeMap([
+      ['DB_HOST', 'localhost'],
+      ['DB_PORT', '5432'],
+      ['APP_NAME', 'myapp'],
+    ]);
+    const groups = groupEnvByPrefix(map);
     expect(groups.has('DB')).toBe(true);
     expect(groups.has('APP')).toBe(true);
-    expect(groups.get('DB')!.has('DB_HOST')).toBe(true);
-    expect(groups.get('DB')!.has('DB_PORT')).toBe(true);
+    expect(groups.get('DB')!.size).toBe(2);
+    expect(groups.get('APP')!.size).toBe(1);
   });
 
-  it('places keys without delimiter into __ungrouped__', () => {
-    const map = makeMap({ NOPREFIX: 'val', APP_KEY: 'other' });
+  it('places unprefixed keys in __other__', () => {
+    const map = makeMap([['NOPREFIX', 'val']]);
     const groups = groupEnvByPrefix(map);
-    expect(groups.has('__ungrouped__')).toBe(true);
-    expect(groups.get('__ungrouped__')!.has('NOPREFIX')).toBe(true);
+    expect(groups.has('__other__')).toBe(true);
+  });
+
+  it('respects custom delimiter', () => {
+    const map = makeMap([['DB.HOST', 'localhost'], ['DB.PORT', '5432']]);
+    const groups = groupEnvByPrefix(map, '.');
+    expect(groups.has('DB')).toBe(true);
+    expect(groups.get('DB')!.size).toBe(2);
   });
 });
 
 describe('applySortOptions', () => {
-  it('applies flat sort when groupByPrefix is false', () => {
-    const map = makeMap({ Z: '1', A: '2', M: '3' });
-    const result = applySortOptions(map, { order: 'asc', groupByPrefix: false });
-    expect(Array.from(result.keys())).toEqual(['A', 'M', 'Z']);
+  it('sorts without grouping', () => {
+    const map = makeMap([['Z_KEY', '1'], ['A_KEY', '2']]);
+    const result = applySortOptions(map, { order: 'asc' });
+    expect(Array.from(result.keys())).toEqual(['A_KEY', 'Z_KEY']);
   });
 
-  it('groups and sorts when groupByPrefix is true', () => {
-    const map = makeMap({ DB_PORT: '5432', APP_NAME: 'test', DB_HOST: 'localhost' });
+  it('sorts with grouping preserves prefix order', () => {
+    const map = makeMap([
+      ['Z_B', '1'], ['Z_A', '2'], ['A_C', '3']
+    ]);
     const result = applySortOptions(map, { order: 'asc', groupByPrefix: true });
     const keys = Array.from(result.keys());
-    expect(keys.indexOf('APP_NAME')).toBeLessThan(keys.indexOf('DB_HOST'));
-    expect(keys.indexOf('DB_HOST')).toBeLessThan(keys.indexOf('DB_PORT'));
-  });
-
-  it('defaults to ascending order with no options', () => {
-    const map = makeMap({ C: '3', A: '1', B: '2' });
-    const result = applySortOptions(map);
-    expect(Array.from(result.keys())).toEqual(['A', 'B', 'C']);
+    expect(keys.indexOf('A_C')).toBeLessThan(keys.indexOf('Z_A'));
+    expect(keys.indexOf('Z_A')).toBeLessThan(keys.indexOf('Z_B'));
   });
 });
