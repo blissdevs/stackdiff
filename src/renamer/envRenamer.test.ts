@@ -1,67 +1,72 @@
 import {
-  renameEnvKeys,
   buildRenameMap,
   replaceKeyPrefix,
-} from "./envRenamer";
+  renameEnvKeys,
+  formatRenameReport,
+} from './envRenamer';
 
 function makeMap(obj: Record<string, string>): Map<string, string> {
   return new Map(Object.entries(obj));
 }
 
-describe("renameEnvKeys", () => {
-  it("renames specified keys", () => {
-    const env = makeMap({ OLD_KEY: "value", KEEP: "same" });
-    const result = renameEnvKeys(env, { OLD_KEY: "NEW_KEY" });
-    expect(result.renamed["NEW_KEY"]).toBe("value");
-    expect(result.renamed["KEEP"]).toBe("same");
-    expect(result.renamed["OLD_KEY"]).toBeUndefined();
+describe('buildRenameMap', () => {
+  it('parses key=value pairs', () => {
+    const map = buildRenameMap(['OLD_KEY=NEW_KEY', 'FOO=BAR']);
+    expect(map['OLD_KEY']).toBe('NEW_KEY');
+    expect(map['FOO']).toBe('BAR');
   });
 
-  it("tracks applied renames", () => {
-    const env = makeMap({ A: "1", B: "2" });
-    const result = renameEnvKeys(env, { A: "ALPHA" });
-    expect(result.applied).toEqual({ A: "ALPHA" });
-  });
-
-  it("tracks skipped keys", () => {
-    const env = makeMap({ A: "1", B: "2" });
-    const result = renameEnvKeys(env, { A: "ALPHA" });
-    expect(result.skipped).toContain("B");
-    expect(result.skipped).not.toContain("A");
-  });
-
-  it("returns unchanged map when rename map is empty", () => {
-    const env = makeMap({ FOO: "bar" });
-    const result = renameEnvKeys(env, {});
-    expect(result.renamed).toEqual({ FOO: "bar" });
-    expect(result.applied).toEqual({});
+  it('ignores malformed pairs', () => {
+    const map = buildRenameMap(['NOEQUALS', '=NOKEY']);
+    expect(Object.keys(map)).toHaveLength(0);
   });
 });
 
-describe("buildRenameMap", () => {
-  it("builds a map from parallel arrays", () => {
-    const map = buildRenameMap(["A", "B"], ["ALPHA", "BETA"]);
-    expect(map).toEqual({ A: "ALPHA", B: "BETA" });
+describe('replaceKeyPrefix', () => {
+  it('replaces matching prefix', () => {
+    expect(replaceKeyPrefix('APP_HOST', 'APP_', 'SERVICE_')).toBe('SERVICE_HOST');
   });
 
-  it("throws when arrays differ in length", () => {
-    expect(() => buildRenameMap(["A"], ["X", "Y"])).toThrow();
+  it('returns key unchanged when prefix does not match', () => {
+    expect(replaceKeyPrefix('DB_HOST', 'APP_', 'SERVICE_')).toBe('DB_HOST');
   });
 });
 
-describe("replaceKeyPrefix", () => {
-  it("renames keys matching the old prefix", () => {
-    const env = makeMap({ APP_HOST: "localhost", APP_PORT: "3000", OTHER: "x" });
-    const result = replaceKeyPrefix(env, "APP_", "SVC_");
-    expect(result.renamed["SVC_HOST"]).toBe("localhost");
-    expect(result.renamed["SVC_PORT"]).toBe("3000");
-    expect(result.renamed["OTHER"]).toBe("x");
+describe('renameEnvKeys', () => {
+  it('renames keys according to map', () => {
+    const env = makeMap({ OLD_KEY: 'value', OTHER: 'x' });
+    const { renamed } = renameEnvKeys(env, { OLD_KEY: 'NEW_KEY' });
+    expect(renamed.get('NEW_KEY')).toBe('value');
+    expect(renamed.has('OLD_KEY')).toBe(false);
+    expect(renamed.get('OTHER')).toBe('x');
   });
 
-  it("leaves map unchanged when no keys match prefix", () => {
-    const env = makeMap({ FOO: "1" });
-    const result = replaceKeyPrefix(env, "BAR_", "BAZ_");
-    expect(result.renamed).toEqual({ FOO: "1" });
-    expect(result.applied).toEqual({});
+  it('detects conflicts when target key already exists', () => {
+    const env = makeMap({ OLD_KEY: 'v1', NEW_KEY: 'v2' });
+    const { conflicts, renamed } = renameEnvKeys(env, { OLD_KEY: 'NEW_KEY' });
+    expect(conflicts).toContain('OLD_KEY');
+    expect(renamed.get('OLD_KEY')).toBe('v1');
+  });
+
+  it('returns skipped list of original renamed keys', () => {
+    const env = makeMap({ A: '1', B: '2' });
+    const { skipped } = renameEnvKeys(env, { A: 'ALPHA' });
+    expect(skipped).toContain('A');
+  });
+});
+
+describe('formatRenameReport', () => {
+  it('includes renamed count', () => {
+    const env = makeMap({ A: '1' });
+    const result = renameEnvKeys(env, { A: 'ALPHA' });
+    const report = formatRenameReport(result);
+    expect(report).toContain('Renamed: 1');
+  });
+
+  it('includes conflict info when present', () => {
+    const env = makeMap({ A: '1', B: '2' });
+    const result = renameEnvKeys(env, { A: 'B' });
+    const report = formatRenameReport(result);
+    expect(report).toContain('Conflicts');
   });
 });
