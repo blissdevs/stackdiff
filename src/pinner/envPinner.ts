@@ -1,6 +1,10 @@
 export type PinEntry = { key: string; value: string; pinnedAt: string };
 export type PinMap = Map<string, PinEntry>;
 
+/**
+ * Creates a PinMap from the given envMap, capturing current values for the specified keys.
+ * Keys not present in envMap are silently skipped.
+ */
 export function pinKeys(
   envMap: Map<string, string>,
   keys: string[]
@@ -78,4 +82,16 @@ export function pinMapFromJson(json: unknown): PinMap {
     pinMap.set(key, entry as PinEntry);
   }
   return pinMap;
+}
+
+/**
+ * Merges two PinMaps into a new PinMap. If the same key exists in both,
+ * the entry from `override` takes precedence.
+ */
+export function mergePinMaps(base: PinMap, override: PinMap): PinMap {
+  const merged: PinMap = new Map(base);
+  for (const [key, entry] of override) {
+    merged.set(key, entry);
+  }
+  return merged;
 }
