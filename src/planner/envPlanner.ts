@@ -17,6 +17,10 @@ export interface EnvPlan {
   keepCount: number;
 }
 
+/**
+ * Computes the diff between a current and target environment variable map.
+ * Returns a plan describing what actions are needed to transition from current to target.
+ */
 export function planEnvChanges(current: EnvMap, target: EnvMap): EnvPlan {
   const entries: PlanEntry[] = [];
   const allKeys = new Set([...current.keys(), ...target.keys()]);
@@ -47,6 +51,9 @@ export function planEnvChanges(current: EnvMap, target: EnvMap): EnvPlan {
   };
 }
 
+/**
+ * Formats a human-readable summary of the plan, listing each entry with its action symbol.
+ */
 export function formatPlanReport(plan: EnvPlan): string {
   const lines: string[] = [];
   lines.push(`Plan: +${plan.addCount} add, -${plan.removeCount} remove, ~${plan.updateCount} update, =${plan.keepCount} keep`);
@@ -77,4 +84,11 @@ export function planToJson(plan: EnvPlan): object {
     },
     entries: plan.entries,
   };
+}
+
+/**
+ * Returns true if the plan requires no changes (i.e. all entries are "keep").
+ */
+export function isNoop(plan: EnvPlan): boolean {
+  return plan.addCount === 0 && plan.removeCount === 0 && plan.updateCount === 0;
 }
